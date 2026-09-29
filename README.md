@@ -1,55 +1,45 @@
 > [!important]
 > 请严格遵循学校相关规章制度，合理使用本工具。严禁用于恶意并发请求、破坏系统稳定性等违规行为。若引起服务器异常，作者将立即终止项目维护。
 
-# BUAA Sign Tool (北航课程打卡系统)
+# BUAA Open Sign Tool（北航课程签到）
 
-一款专为北航学子打造的极简主义桌面端课程辅助工具。支持查看每周课表、课程状态追踪，以及校内/校外环境下的**一键自动打卡**功能。
+北航 iClass（智慧教室）课程签到的开源 Android 客户端，支持查看每周课表，并在开课前 10 分钟内完成签到。另附桌面端与 Linux 自动签到服务源码。
 
----
+## 功能
 
-## 核心特性
+- **统一身份认证登录**：经 iClass `jumpMyCenter` 换取身份，账号密码不经过第三方
+- **双网络模式**：校园网直连 / 校外 WebVPN
+- **周课表浏览**：按学期基准日计算周次，支持周视图与日列表切换
+- **限时签到**：仅在开课前 10 分钟窗口内开放，提供「教师签到」「正常签到」两种通道
+- **本机记住登录**：密码经 Android Keystore 加密保存，可随时清除
+- 跟随系统明暗主题，Material 3 界面
 
-- **极简主义 UI**：拒绝视觉噪音，专注核心信息，提供如同高端画廊般的清爽体验。
-- **双模网络穿透**：
-  - **校园直连**：通过统一身份认证换取 iClass `loginName`。
-  - **校外穿透**：使用同一账号密码，经 WebVPN 访问 iClass。
-- **单体桌面应用**：基于 `pywebview` 架构，轻量、跨平台。
-- **Android 客户端**：查看周课表、记住学期基准日，并在允许的时间内手动签到。
-- **Linux 服务**：在开课前 10 分钟内按计划自动签到。
+## 安装
 
-Android 客户端的构建和使用见 [README-android.md](README-android.md)；Linux 服务的部署和管理见 [README-server.md](README-server.md)。服务器账号配置放在 `/etc/buaa-sign-tool.json`，不要提交到仓库。
+从 [Releases](../../releases) 下载最新 APK 安装到 Android 设备（Android 8.0+）。
 
----
+## 使用
 
-## 使用教程
+1. 选择网络模式（校内选「校园网」，校外选「WebVPN」）
+2. 输入统一身份认证账号密码登录
+3. 首次使用请在登录页设置**学期基准日**（本学期第一周的周一），用于计算周次
+4. 课程进入开课前 10 分钟窗口后，在课程卡片或底部批量按钮完成签到
 
-### 环境准备
+## 自行构建
+
+用 Android Studio 打开 `android/` 目录，或在 `android/` 下运行：
 
 ```bash
-pip install -r requirements.txt
+./gradlew :app:assembleDebug
 ```
 
-启动程序：
-```bash
-python app.py
-```
+APK 输出在 `android/app/build/outputs/apk/debug/`。正式版签名等细节见 [README-android.md](README-android.md)。
 
-### 校园直连
+## 其他组件
 
-处于校园网环境时：
-1. 选择"校园直连"
-2. 输入统一身份认证账号和密码
-3. 点击登录
-
-### 校外网络（WebVPN）
-
-处于校外网络时：
-1. 选择"校外网络"
-2. 输入**账号**（统一身份认证账号）
-3. 输入**密码**（统一身份认证密码）
-4. 点击"VPN 登录"
-
----
+- `app.py` + `web/`：Python + pywebview 桌面端（`pip install -r requirements.txt && python app.py`）
+- `auto_sign.py` + `deploy/`：Linux systemd 自动签到服务，部署见 [README-server.md](README-server.md)
+- `ClassSignToolCLI.py`：命令行签到工具
 
 ## 免责声明
 
