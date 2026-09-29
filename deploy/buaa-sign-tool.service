@@ -1,0 +1,29 @@
+[Unit]
+Description=BUAA iClass automatic check-in service
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/etc/buaa-sign-tool.json
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/dev/buaa-sign-tool
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/dev/buaa-sign-tool/.venv/bin/python /opt/dev/buaa-sign-tool/auto_sign.py --config /etc/buaa-sign-tool.json
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

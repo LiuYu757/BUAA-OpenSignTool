@@ -1,0 +1,34 @@
+.DS_Store
+# PyInstaller
+build/
+dist/
+*.exe
+*.bin
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# Python cache
+__pycache__/
+iclass*/
+ref*/
+
+# Local environments and build output
+.venv/
+.impeccable/
+.pytest_cache/
+.coverage
+*.apk
+*.aab
+
+# Local credentials and deployment state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+buaa-sign-tool.json
