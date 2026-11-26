@@ -3,43 +3,43 @@
 
 # BUAA Open Sign Tool（北航课程签到）
 
-北航 iClass（智慧教室）课程签到的开源 Android 客户端，支持查看每周课表，并在开课前 10 分钟内完成签到。另附桌面端与 Linux 自动签到服务源码。
+北航 iClass 课程签到的开源 Android 客户端，支持课表浏览、WebVPN 登录、课堂签到，以及 SPOC、希冀作业和财务收入查询。另附桌面端与 Linux 自动签到服务源码。
 
 ## 功能
 
-- **统一身份认证登录**：经 iClass `jumpMyCenter` 换取身份，账号密码不经过第三方
-- **双网络模式**：校园网直连 / 校外 WebVPN
-- **周课表浏览**：按学期基准日计算周次，支持周视图与日列表切换
-- **限时签到**：仅在开课前 10 分钟窗口内开放，提供「教师签到」「正常签到」两种通道
-- **本机记住登录**：密码经 Android Keystore 加密保存，可随时清除
-- 跟随系统明暗主题，Material 3 界面
+- 统一身份认证登录，支持校园网和 WebVPN，图形验证码可显示、填写和刷新。
+- 默认展示当天课程，支持切换日期、翻周和周总览。
+- 课程卡片显示签到时段和状态，提交后查询学校考勤记录确认结果。
+- 课表「更多操作」提供 SPOC 作业、希冀作业和财务收入查询。
+- 登录密码经 Android Keystore 加密保存，可随时清除。
+- Linux 服务在课前 5 分钟内自动提交线上课程签到，持久化待确认记录并防止重复进程。
 
 ## 安装
 
-从 [Releases](../../releases) 下载最新 APK 安装到 Android 设备（Android 8.0+）。
+从 [Releases](https://github.com/LiuYu757/BUAA-OpenSignTool/releases) 下载 APK，适用于 Android 8.0 及以上设备。
 
 ## 使用
 
-1. 选择网络模式（校内选「校园网」，校外选「WebVPN」）
-2. 输入统一身份认证账号密码登录
-3. 首次使用请在登录页设置**学期基准日**（本学期第一周的周一），用于计算周次
-4. 课程进入开课前 10 分钟窗口后，在课程卡片或底部批量按钮完成签到
+1. 选择校园网或 WebVPN 网络模式，使用统一身份认证登录。
+2. 首次登录后在「更多操作」中设置学期基准日。
+3. 在日期栏选择课程日期，进入课程签到时段后点「签到」并确认课程。
+4. 提交结果不明确时点「刷新状态」，查看学校考勤记录。
 
 ## 自行构建
 
-用 Android Studio 打开 `android/` 目录，或在 `android/` 下运行：
+用 Android Studio 打开 `android/`，或在该目录执行：
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-APK 输出在 `android/app/build/outputs/apk/debug/`。正式版签名等细节见 [README-android.md](README-android.md)。
+调试 APK 输出在 `android/app/build/outputs/apk/debug/`。签名和发布构建见 [README-android.md](README-android.md)。
 
 ## 其他组件
 
-- `app.py` + `web/`：Python + pywebview 桌面端（`pip install -r requirements.txt && python app.py`）
-- `auto_sign.py` + `deploy/`：Linux systemd 自动签到服务，部署见 [README-server.md](README-server.md)
-- `ClassSignToolCLI.py`：命令行签到工具
+- `app.py` 与 `web/` 提供 Python + pywebview 桌面端，支持手动迟到签到。
+- `auto_sign.py` 与 `deploy/` 提供 Linux 自动签到服务，部署见 [README-server.md](README-server.md)。
+- `ClassSignToolCLI.py` 提供命令行工具。
 
 ## 免责声明
 

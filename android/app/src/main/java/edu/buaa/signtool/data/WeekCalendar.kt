@@ -9,4 +9,9 @@ object WeekCalendar {
 
     fun weekStart(baseline: LocalDate, weekNumber: Int): LocalDate =
         baseline.plusWeeks((weekNumber.coerceIn(1, 18) - 1).toLong())
+
+    fun dateInWeek(baseline: LocalDate, weekNumber: Int, preferredDate: LocalDate): LocalDate {
+        val start = weekStart(baseline, weekNumber)
+        return if (preferredDate in start..start.plusDays(6)) preferredDate else start
+    }
 }

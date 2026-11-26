@@ -22,6 +22,8 @@ const DICT = {
         btnReset: '本周',
         btnReload: '刷新',
         btnBatch: '一键签到',
+        btnBatchLate: '一键迟到签到',
+        lateHint: '迟到签到限开课后至下课前，结果以 iClass 返回为准。',
         lblStatBlocks: '排课数',
         lblStatDone: '已签到',
         lblWelcomeTitle: 'BUAA 课程助手',
@@ -31,6 +33,10 @@ const DICT = {
         wkDays: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
         emptyDay: '今日无课',
         cardSign: '签到',
+        cardLateSign: '迟到签到',
+        msgSigning: '提交中…',
+        msgBusy: '签到中，请稍候…',
+        msgSignFailed: '签到失败，请检查网络或刷新课表后重试',
         cardDone: '已完成',
         cardBadgePending: '未签',
         cardBadgeDone: '已签',
@@ -64,6 +70,8 @@ const DICT = {
         btnReset: 'Current',
         btnReload: 'Refresh',
         btnBatch: 'Sign All',
+        btnBatchLate: 'Late Check-in All',
+        lateHint: 'Late check-in is available during class. iClass determines the result.',
         lblStatBlocks: 'Blocks',
         lblStatDone: 'Signed',
         lblWelcomeTitle: 'BUAA Sign Tool',
@@ -73,6 +81,10 @@ const DICT = {
         wkDays: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
         emptyDay: 'No classes',
         cardSign: 'SIGN',
+        cardLateSign: 'Late Check-in',
+        msgSigning: 'Submitting…',
+        msgBusy: 'Check-in in progress…',
+        msgSignFailed: 'Check-in failed. Check your connection or refresh the schedule.',
         cardDone: 'DONE',
         cardBadgePending: 'PENDING',
         cardBadgeDone: 'SIGNED',
@@ -127,11 +139,13 @@ const app = {
         this.$('lblVpnPwd').textContent = d.lblVpnPwd;
         this.$('vpnPassword').placeholder = d.phVpnPwd;
         this.$('lblSemester').textContent = d.lblSemester;
-        this.$('btnLogout').textContent = d.btnLogout;
+        this.$('logoutBtn').textContent = d.btnLogout;
         this.$('lblTimeCtrl').textContent = d.lblTimeCtrl;
         this.$('btnReset').textContent = d.btnReset;
         this.$('btnReload').textContent = d.btnReload;
         this.$('btnBatch').textContent = d.btnBatch;
+        this.$('btnBatchLate').textContent = d.btnBatchLate;
+        this.$('lateSignHint').textContent = d.lateHint;
         this.$('lblStatBlocks').textContent = d.lblStatBlocks;
         this.$('lblStatDone').textContent = d.lblStatDone;
         this.$('lblWelcomeTitle').textContent = d.lblWelcomeTitle;
@@ -426,7 +440,8 @@ const app = {
         // 课程签到按钮 - 使用 this 传递卡片引用
         const btnHtml = isSigned
             ? `<button class="btn-sign signed" disabled>${d.cardDone}</button>`
-            : `<button class="btn-sign" onclick="app.signCourseByCard(this.closest('.course-card'))">${d.cardSign}</button>`;
+            : `<button class="btn-sign" onclick="app.signCourseByCard(this.closest('.course-card'))">${d.cardSign}</button>
+               <button class="btn-sign" onclick="app.signCourseByCard(this.closest('.course-card'), 'late')">${d.cardLateSign}</button>`;
 
         card.className = `course-card ${isSigned ? 'signed' : 'unsigned'}`;
         card.innerHTML = `
@@ -452,10 +467,11 @@ const app = {
     // ==========================================
     // 签到操作
     // ==========================================
-    signCourseByCard(card) {
+    signCourseByCard(card, signMode = 'normal') {
+        const d = DICT[this.lang];
         // 防止重复点击
         if (this._signingCourse) {
-            this.toast('签到中，请稍候...');
+            this.toast(d.msgBusy);
             return;
         }
         
@@ -467,26 +483,42 @@ const app = {
         const courseSchedIds = courseData.courseSchedIds || [courseId];
         
         this._signingCourse = courseName;
-        this.pushLog(`正在签到: ${courseName}...`);
+        const action = signMode === 'late' ? d.cardLateSign : d.cardSign;
+        this.pushLog(`${action}: ${courseName}...`);
+        const buttons = card.querySelectorAll('.btn-sign');
+        buttons.forEach(btn => { btn.disabled = true; });
+        const activeButton = buttons[signMode === 'late' ? 1 : 0];
+        if (activeButton) activeButton.textContent = d.msgSigning;
         
         // 调用后端签到
-        window.pywebview.api.sign_course(JSON.stringify(courseSchedIds), JSON.stringify([courseName]))
+        return window.pywebview.api.sign_course(
+            JSON.stringify(courseSchedIds),
+            JSON.stringify(courseSchedIds.map(() => courseName)),
+            signMode,
+        )
             .then(result => {
                 this._signingCourse = null;
                 if (result.success > 0) {
                     // 签到成功，无感更新卡片状态
                     this._updateCardSigned(card, true);
-                    this.toast('签到成功');
+                    this.toast(result.results?.find(r => r.status === 'success')?.message || '签到成功');
                 } else if (result.skipped > 0) {
                     this._updateCardSigned(card, true);
                     this.toast('已签到');
                 } else {
-                    this.toast('签到失败，请稍后重试');
+                    this.toast(result.results?.find(r => r.status === 'failed')?.message || result.error || d.msgSignFailed);
                 }
             })
             .catch(e => {
                 this._signingCourse = null;
-                this.toast('签到失败，请稍后重试');
+                this.toast(d.msgSignFailed);
+            })
+            .finally(() => {
+                if (String(courseData.signStatus) !== '1') {
+                    buttons.forEach(btn => { btn.disabled = false; });
+                    if (buttons[0]) buttons[0].textContent = d.cardSign;
+                    if (buttons[1]) buttons[1].textContent = d.cardLateSign;
+                }
             });
     },
     
@@ -507,11 +539,9 @@ const app = {
         }
         
         // 更新按钮
-        const btn = card.querySelector('.btn-sign');
-        if (btn) {
-            btn.className = `btn-sign ${isSigned ? 'signed' : ''}`;
-            btn.disabled = isSigned;
-            btn.textContent = isSigned ? d.cardDone : d.cardSign;
+        const action = card.querySelector('.card-action');
+        if (action && isSigned) {
+            action.innerHTML = `<button class="btn-sign signed" disabled>${d.cardDone}</button>`;
         }
         
         // 更新课程数据缓存
@@ -525,34 +555,49 @@ const app = {
             const signedCount = parseInt(this.$('signedCourses').textContent) || 0;
             const totalCount = parseInt(this.$('totalCourses').textContent) || 0;
             this.$('signedCourses').textContent = Math.min(signedCount + 1, totalCount);
+            const column = card.closest('.day-column');
+            if (column) {
+                const dayCards = Array.from(column.querySelectorAll('.course-card'));
+                column.querySelector('.day-stat').textContent = d.statBlocks(
+                    dayCards.length, dayCards.filter(c => c.classList.contains('signed')).length,
+                );
+            }
         }
     },
 
-    batchSign() {
+    batchSign(signMode = 'normal') {
+        const d = DICT[this.lang];
         if (this._signingCourse) {
-            this.toast('签到中，请稍候...');
+            this.toast(d.msgBusy);
             return;
         }
         
         this._signingCourse = 'batch';
-        this.pushLog(`一键签到中，请稍候...`);
+        this.pushLog(signMode === 'late' ? d.btnBatchLate : d.msgBatchLaunch);
         this.$('btnBatch').disabled = true;
+        this.$('btnBatchLate').disabled = true;
         
         const sem = this.getSemester();
-        window.pywebview.api.batch_sign_week(this.currentWeek, sem.year, sem.month, sem.day)
+        return window.pywebview.api.batch_sign_week(this.currentWeek, sem.year, sem.month, sem.day, signMode)
             .then(result => {
                 this._signingCourse = null;
                 this.$('btnBatch').disabled = false;
+                this.$('btnBatchLate').disabled = false;
+                this._refreshCardsByResult(result.results || []);
+
+                if (result.failed > 0) {
+                    this.toast(result.results?.find(r => r.status === 'failed')?.message || d.msgSignFailed);
+                    return;
+                }
                 
                 if (result.success > 0 || result.skipped > 0) {
                     // 根据结果更新 UI
-                    this._refreshCardsByResult(result.results || []);
                     const msg = result.success > 0 
                         ? `签到成功: ${result.success}`
                         : (result.total === 0 ? `本周暂无待签到课程` : `已全部签到`);
                     this.toast(msg);
                 } else if (result.total === 0) {
-                    this.toast(`本周暂无待签到课程`);
+                    this.toast(result.message || '本周暂无待签到课程');
                 } else {
                     this.toast(`签到完成`);
                 }
@@ -560,7 +605,8 @@ const app = {
             .catch(e => {
                 this._signingCourse = null;
                 this.$('btnBatch').disabled = false;
-                this.toast(`签到失败，请稍后重试`);
+                this.$('btnBatchLate').disabled = false;
+                this.toast(d.msgSignFailed);
             });
     },
     

@@ -15,6 +15,7 @@ data class Course(
     val floor: String,
     val teacher: String,
     val signed: Boolean,
+    val signStatusKnown: Boolean = true,
 ) {
     val begin: LocalDateTime?
         get() = parseCourseTime(beginText)
@@ -42,18 +43,17 @@ data class Course(
 data class DaySchedule(
     val date: java.time.LocalDate,
     val courses: List<Course>,
+    val signedScheduleIds: Set<String> = courses.filter { it.signed }.flatMap { it.scheduleIds }.toSet(),
 )
 
 enum class NetworkMode { CAMPUS, WEB_VPN }
-
-enum class SignChannel(val label: String) {
-    ESCHOOL("教师签到"),
-    APP("正常签到"),
-}
 
 data class SignResult(
     val succeeded: Int,
     val alreadySigned: Int,
     val failed: Int,
     val message: String,
+    val unconfirmedIds: Set<String> = emptySet(),
+    val refreshedDays: List<DaySchedule> = emptyList(),
+    val unconfirmedReason: String = "",
 )

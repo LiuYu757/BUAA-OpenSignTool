@@ -549,6 +549,16 @@ html, body {
 
 .card-action {
     margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sign-hint {
+    margin-top: 10px;
+    color: var(--gray-600);
+    font-size: 11px;
+    line-height: 1.6;
 }
 
 .btn-sign {
@@ -565,10 +575,20 @@ html, body {
     transition: all var(--transition);
 }
 
-.btn-sign:hover:not(.signed) {
+.btn-sign:hover:not(:disabled) {
     border-color: var(--black);
     background: var(--black);
     color: var(--white);
+}
+
+.btn-sign:disabled:not(.signed) {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.btn-sign:focus-visible {
+    outline: 2px solid var(--black);
+    outline-offset: 2px;
 }
 
 .btn-sign.signed {

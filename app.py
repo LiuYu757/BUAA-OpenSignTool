@@ -24,6 +24,7 @@ from iclass_client import (
     extract_login_name,
     get_network_urls as build_network_urls,
     is_status_ok,
+    late_sign_error,
     server_now_millis,
     server_time_offset_from_date,
 )
@@ -546,11 +547,21 @@ class Api:
             self._log(f"获取服务端时间失败，使用本机校正时间: {e}", "warning")
         return str(server_now_millis(self.server_time_offset_ms))
 
-    def sign_course(self, course_ids, course_names=None):
+    def _cached_course(self, schedule_id):
+        for courses in self._week_cache.values():
+            for course in courses:
+                ids = course.get("courseSchedIds") or [course.get("id")]
+                if str(schedule_id) in {str(cid) for cid in ids}:
+                    return course
+        return None
+
+    def sign_course(self, course_ids, course_names=None, sign_mode="normal"):
         """
         发送签到请求。
         参照 Rust 版本的 sign_now 方法。
         """
+        if sign_mode not in ("normal", "late"):
+            raise ValueError("未知的签到模式")
         # 统一处理为列表
         if isinstance(course_ids, str):
             try:
@@ -573,7 +584,9 @@ class Api:
         results = []
 
         urls = self._urls or get_network_urls(self.use_vpn)
-        sign_url = urls["scan_sign"]
+        # APP is the Android client's normal attendance channel. Late requests
+        # use real server timestamps; iClass decides whether attendance is accepted.
+        sign_url = urls["app_scan_sign"] if sign_mode == "late" else urls["scan_sign"]
 
         for i, cid in enumerate(course_ids):
             course_name = None
@@ -585,7 +598,27 @@ class Api:
             display_name = course_name if course_name else cid[:8] + "..."
 
             try:
+                if sign_mode == "late":
+                    course = self._cached_course(cid)
+                    if course and str(course.get("signStatus")) == "1":
+                        skipped += 1
+                        results.append({"id": cid, "name": display_name, "status": "skipped", "message": "已签到"})
+                        continue
+                    error = late_sign_error(course, server_now_millis(self.server_time_offset_ms))
+                    if error:
+                        failed += 1
+                        results.append({"id": cid, "name": display_name, "status": "failed", "message": error})
+                        self._log(f"{display_name}: {error}", "warning")
+                        continue
                 timestamp = self._get_server_timestamp()
+                if sign_mode == "late":
+                    # Timestamp lookup can cross class end. Recheck before POST.
+                    error = late_sign_error(course, server_now_millis(self.server_time_offset_ms))
+                    if error:
+                        failed += 1
+                        results.append({"id": cid, "name": display_name, "status": "failed", "message": error})
+                        self._log(f"{display_name}: {error}", "warning")
+                        continue
                 
                 # 参照 Rust 版本：POST 请求，参数放在 query string
                 res = self.session.post(
@@ -607,47 +640,51 @@ class Api:
 
                         if classification.status == "success":
                             success += 1
-                            results.append({"id": cid, "name": display_name, "status": "success"})
+                            results.append({"id": cid, "name": display_name, "status": "success", "message": classification.message})
                             self._log(f"{display_name} 签到成功", "success")
                         elif classification.status == "skipped":
                             skipped += 1
-                            results.append({"id": cid, "name": display_name, "status": "skipped"})
+                            results.append({"id": cid, "name": display_name, "status": "skipped", "message": classification.message})
                             self._log(f"{display_name} 已签到", "info")
                         else:
                             failed += 1
-                            results.append({"id": cid, "name": display_name, "status": "failed"})
+                            results.append({"id": cid, "name": display_name, "status": "failed", "message": classification.message})
                             self._log(f"{display_name} 签到失败: {classification.message}", "warning")
                     except json.JSONDecodeError:
-                        text = res.text
-                        if "成功" in text or "SUCCESS" in text:
-                            success += 1
-                            results.append({"id": cid, "name": display_name, "status": "success"})
-                            self._log(f"{display_name} 签到成功", "success")
-                        else:
-                            failed += 1
-                            results.append({"id": cid, "name": display_name, "status": "failed"})
+                        failed += 1
+                        results.append({"id": cid, "name": display_name, "status": "failed", "message": "iClass 返回格式异常，请刷新课表后重试"})
                 else:
                     failed += 1
-                    results.append({"id": cid, "name": display_name, "status": "failed"})
+                    results.append({"id": cid, "name": display_name, "status": "failed", "message": f"网络错误: {res.status_code}"})
                     self._log(f"{display_name} 网络错误: {res.status_code}", "warning")
             except Exception as e:
                 failed += 1
-                results.append({"id": cid, "name": display_name, "status": "failed"})
+                results.append({"id": cid, "name": display_name, "status": "failed", "message": "连接 iClass 失败，请检查网络后重试"})
                 self._log(f"{display_name} 请求异常", "warning")
             time.sleep(0.15)
+
+        for item in results:
+            if item["status"] in ("success", "skipped"):
+                cached = self._cached_course(item["id"])
+                if cached:
+                    cached["signStatus"] = "1"
 
         total = len(course_ids)
         if skipped > 0:
             self._log(f"签到完成: {success}/{total} 成功，{skipped} 已跳过", "success" if failed == 0 else "warning")
         elif success > 0:
             self._log(f"签到完成: {success}/{total} 成功", "success" if failed == 0 else "warning")
+        elif failed:
+            self._log(f"签到完成: {failed}/{total} 失败，请查看具体原因", "warning")
         else:
             self._log("签到完成: 本周暂无待签到课程", "info")
 
         return {"success": success, "total": total, "skipped": skipped, "failed": failed, "results": results}
 
-    def batch_sign_week(self, week_number, year, month, day):
+    def batch_sign_week(self, week_number, year, month, day, sign_mode="normal"):
         """批量签到本周所有课程（自动跳过已签到）"""
+        if sign_mode not in ("normal", "late"):
+            raise ValueError("未知的签到模式")
         if not self._week_cache:
             self.get_week_courses(week_number, year, month, day)
 
@@ -662,31 +699,25 @@ class Api:
                     name = c.get("courseName", cid)
                     self._log(f"跳过已签到: {name}", "info")
                     continue
-                all_ids.append(cid)
+                if sign_mode == "late" and late_sign_error(
+                    c, server_now_millis(self.server_time_offset_ms)
+                ):
+                    continue
                 name = c.get("courseName", "")
                 if not name:
                     name = self._course_names.get(cid, "")
-                all_names.append(name)
+                for schedule_id in c.get("courseSchedIds") or [cid]:
+                    if schedule_id and schedule_id not in all_ids:
+                        all_ids.append(schedule_id)
+                        all_names.append(name)
 
         if not all_ids:
-            self._log("本周暂无待签到课程", "info")
-            return {"success": 0, "total": 0, "skipped": 0}
+            message = "当前没有可迟到签到的课程" if sign_mode == "late" else "本周暂无待签到课程"
+            self._log(message, "info")
+            return {"success": 0, "total": 0, "skipped": 0, "failed": 0, "results": [], "message": message}
 
         self._log(f"正在批量签到 {len(all_ids)} 门课程...")
-        result = self.sign_course(all_ids, all_names)
-        
-        # 签到成功后更新本地缓存
-        if result.get("success", 0) > 0:
-            for res_item in result.get("results", []):
-                if res_item.get("status") == "success":
-                    cid = res_item.get("id", "")
-                    for day_courses in self._week_cache.values():
-                        for c in day_courses:
-                            if c.get("id") == cid:
-                                c["signStatus"] = "1"
-                                break
-        
-        return result
+        return self.sign_course(all_ids, all_names, sign_mode)
 
     def get_current_week(self, year, month, day):
         """根据学期起始日计算当前周数"""

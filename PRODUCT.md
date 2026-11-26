@@ -24,14 +24,16 @@ The client uses the university SSO identity resolved through iClass/WebVPN and o
 
 ## Operating Context
 
-Students may connect from campus or through BUAA WebVPN. They select a semester base date to calculate the current week and navigate the weekly schedule. Attendance is only eligible during the ten minutes before a class starts, per the user's instruction.
+Students may connect from campus or through BUAA WebVPN. They select a semester base date to calculate the current week and navigate the weekly schedule. Student check-in can be requested from ten minutes before class starts until class ends. iClass determines acceptance, and the app checks the course record before displaying a confirmed result.
 
 ## Capabilities and Constraints
 
 - Existing desktop capabilities include direct campus login, WebVPN login, week navigation, weekly schedule lookup, and single-course or weekly attendance actions.
 - The Android client should retain those user-facing flows using native Android conventions.
+- The Android schedule opens on the selected day's courses. A compact date strip switches days, with a separate week overview and an on-demand weekly check-in sheet.
 - The semester base date must be persisted on the device and restored on later launches.
 - Authentication is SSO followed by resolving the iClass `loginName`; a student number is not assumed to be the iClass identity.
+- When SSO requires an image challenge, let the student view, refresh, and answer it in the native login screen, keeping the active SSO session across those steps.
 - Do not log or commit credentials. The Android client may remember one login profile only when the user has logged in; the password is encrypted with Android Keystore and can be cleared from the login screen.
 - The separate Linux systemd automatic signer is outside the Android client scope.
 

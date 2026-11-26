@@ -32,3 +32,12 @@ ref*/
 *.jks
 *.keystore
 buaa-sign-tool.json
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.log
+*.p12
+*.pfx
+state.json
+state.lock

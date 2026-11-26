@@ -1,7 +1,9 @@
 from dataclasses import dataclass
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 import time
 from urllib.parse import parse_qs, unquote_plus, urlparse
+from zoneinfo import ZoneInfo
 
 
 SSO_LOGIN_URL = "https://sso.buaa.edu.cn/login"
@@ -25,6 +27,7 @@ def get_network_urls(use_vpn):
             "course_sign_detail": f"{api_base}/app/my/get_my_course_sign_detail.action",
             "timestamp": f"{sign_base}/app/common/get_timestamp.action",
             "scan_sign": f"{sign_base}/eschool/app/course/stu_scan_sign.action",
+            "app_scan_sign": f"{sign_base}/app/course/stu_scan_sign.action",
             "course_schedule_by_date": f"{api_base}/app/course/get_stu_course_sched.action",
         }
 
@@ -40,6 +43,7 @@ def get_network_urls(use_vpn):
         "course_sign_detail": f"{api_base}/app/my/get_my_course_sign_detail.action",
         "timestamp": f"{sign_base}/app/common/get_timestamp.action",
         "scan_sign": f"{sign_base}/eschool/app/course/stu_scan_sign.action",
+        "app_scan_sign": f"{sign_base}/app/course/stu_scan_sign.action",
         "course_schedule_by_date": f"{api_base}/app/course/get_stu_course_sched.action",
     }
 
@@ -84,6 +88,33 @@ def server_time_offset_from_date(date_header, now_ms=None, use_vpn=False):
 
 def server_now_millis(offset_ms):
     return int(time.time() * 1000) + int(offset_ms or 0)
+
+
+def late_sign_error(course, now_ms):
+    """Validate a manual late request against the actual Beijing class times."""
+    if not course:
+        return "未找到课程信息，请刷新课表后重试"
+    times = []
+    for key in ("classBeginTime", "classEndTime"):
+        value = str(course.get(key) or "")
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                times.append(datetime.strptime(value, fmt).replace(
+                    tzinfo=ZoneInfo("Asia/Shanghai")
+                ).timestamp() * 1000)
+                break
+            except ValueError:
+                continue
+        else:
+            return "课程起止时间不完整，请刷新课表后重试"
+    start, end = times
+    if end <= start:
+        return "课程起止时间无效，请刷新课表后重试"
+    if now_ms < start:
+        return "尚未开课，请使用正常签到"
+    if now_ms >= end:
+        return "课程已结束，无法迟到签到"
+    return None
 
 
 def api_status(data):

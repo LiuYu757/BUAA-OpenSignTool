@@ -78,6 +78,10 @@
                     <button class="btn btn-primary btn-dark" style="margin-top: 12px; background: #000;" id="btnBatch" onclick="app.batchSign()">
                         一键签到
                     </button>
+                    <button class="btn btn-ghost" style="margin-top: 8px;" id="btnBatchLate" onclick="app.batchSign('late')">
+                        一键迟到签到
+                    </button>
+                    <p class="sign-hint" id="lateSignHint">迟到签到限开课后至下课前，结果以 iClass 返回为准。</p>
                 </section>
 
                 <!-- 极简数据板 -->

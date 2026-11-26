@@ -8,9 +8,9 @@ ConditionPathExists=/etc/buaa-sign-tool.json
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/dev/buaa-sign-tool
+WorkingDirectory=/opt/buaa-sign-tool
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/opt/dev/buaa-sign-tool/.venv/bin/python /opt/dev/buaa-sign-tool/auto_sign.py --config /etc/buaa-sign-tool.json
+ExecStart=/opt/buaa-sign-tool/.venv/bin/python /opt/buaa-sign-tool/auto_sign.py --config /etc/buaa-sign-tool.json
 Restart=on-failure
 RestartSec=30
 TimeoutStopSec=15

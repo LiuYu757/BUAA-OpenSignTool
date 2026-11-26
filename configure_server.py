@@ -46,12 +46,13 @@ def main():
         "course_allowlist": [
             item.strip() for item in raw_courses.split(",") if item.strip()
         ],
-        "lead_minutes": int(existing.get("lead_minutes", 10)),
+        "lead_minutes": min(5, int(existing.get("lead_minutes", 5))),
         "poll_seconds": int(existing.get("poll_seconds", 60)),
         "poll_start": str(existing.get("poll_start", "07:30")),
         "poll_end": str(existing.get("poll_end", "22:30")),
         "max_attempts": int(existing.get("max_attempts", 3)),
         "timeout_seconds": int(existing.get("timeout_seconds", 20)),
+        "state_file": str(existing.get("state_file", "/var/lib/buaa-sign-tool/state.json")),
     }
     temporary = CONFIG_PATH.with_suffix(".json.tmp")
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
